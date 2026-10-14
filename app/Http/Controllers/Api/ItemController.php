@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Item;
 use Illuminate\Http\Request;
 use App\Services\ItemMatchingService;
+use App\Models\ItemMatch;
+
 
 class ItemController extends Controller
 {
@@ -20,6 +22,10 @@ class ItemController extends Controller
 
         if ($request->filled('status')) {
             $query->where('status', $request->query('status'));
+        }
+
+        if ($request->filled('user_id')) {
+        $query->where('user_id', $request->query('user_id'));
         }
 
         if ($request->filled('category_id')) {

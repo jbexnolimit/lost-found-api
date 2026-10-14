@@ -12,6 +12,10 @@ class ItemMatch extends Model
         'found_item_id',
         'match_score',
         'status',
+        'lost_reporter_response',
+        'found_reporter_response',
+        'lost_user_confirmed_at',
+        'found_user_confirmed_at',
     ];
 
     protected function casts(): array

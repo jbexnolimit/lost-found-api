@@ -26,10 +26,15 @@ class ItemMatchingService
             : 'lost';
 
         $candidates = Item::query()
-            ->where('type', $oppositeType)
             ->where('status', 'submitted')
+            ->where('type', $item->type === 'lost' ? 'found' : 'lost')
             ->where('user_id', '!=', $item->user_id)
+            ->whereKeyNot($item->id)
             ->get();
+
+        if ($item->status !== 'submitted') {
+            return;
+        }
 
         foreach ($candidates as $candidate) {
             $score = $this->calculateScore($item, $candidate);
@@ -51,6 +56,7 @@ class ItemMatchingService
             if ($alreadyExists) {
                 continue;
             }
+
 
             ItemMatch::create([
                 'lost_item_id' => $lostItem->id,
@@ -138,5 +144,40 @@ class ItemMatchingService
     private function hasValue(?string $value): bool
     {
         return $value !== null && trim($value) !== '';
+    }
+
+    public function cancel(Request $request, Item $item)
+    {
+        $validated = $request->validate([
+            'user_id' => 'required|integer|exists:users,id',
+        ]);
+
+        if ((int) $item->user_id !== (int) $validated['user_id']) {
+            return response()->json([
+                'message' => 'You can only cancel your own report.',
+            ], 403);
+        }
+
+        if ($item->status !== 'submitted') {
+            return response()->json([
+                'message' => 'Only submitted reports can be cancelled.',
+            ], 422);
+        }
+
+        $item->status = 'cancelled';
+        $item->save();
+
+        // Make any unresolved suggestions involving this report inactive.
+        ItemMatch::where(function ($query) use ($item) {
+            $query->where('lost_item_id', $item->id)
+                ->orWhere('found_item_id', $item->id);
+        })
+            ->whereNotIn('status', ['resolved', 'dismissed'])
+            ->update(['status' => 'dismissed']);
+
+        return response()->json([
+            'message' => 'Report cancelled successfully.',
+            'item' => $item->fresh(),
+        ]);
     }
 }
